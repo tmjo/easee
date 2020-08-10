@@ -66,12 +66,11 @@ class ChargerSchedule(BaseDict):
     """ Charger charging schedule/plan """
 
     def __init__(self, schedule: Dict[str, Any]):
-        # Todo remove the False defaults. Either it is a schedule object or None
         data = {
-            "id": schedule.get("id", False),
-            "chargeStartTime": schedule.get("chargeStartTime", False),
-            "chargeStopTime": schedule.get("chargeStopTime", False),
-            "repeat": schedule.get("repeat", False),
+            "id": schedule.get("id"),
+            "chargeStartTime": schedule.get("chargeStartTime"),
+            "chargeStopTime": schedule.get("chargeStopTime"),
+            "repeat": schedule.get("repeat"),
         }
         super().__init__(data)
 
@@ -124,15 +123,14 @@ class Charger(BaseDict):
 
     async def get_basic_charge_plan(self) -> ChargerSchedule:
         """Get and return charger basic charge plan setting from cloud """
-        plan = await self.easee.get(f"/api/chargers/{self.id}/basic_charge_plan")
         try:
+            plan = await self.easee.get(f"/api/chargers/{self.id}/basic_charge_plan")
             plan = await plan.json()
             _LOGGER.debug(plan)
-        except NotFoundException:
-            # TODO: fix me. Should return None here instead of a ChargerSchedule with False as id
-            plan = {"id": False}
+            return ChargerSchedule(plan)
+        except (NotFoundException):
             _LOGGER.debug("No scheduled charge plan")
-        return ChargerSchedule(plan)
+            return None
 
     # TODO: document types
     async def set_basic_charge_plan(self, id, chargeStartTime, chargeStopTime, repeat=True):
@@ -144,6 +142,31 @@ class Charger(BaseDict):
             "repeat": repeat,
         }
         return await self.easee.post(f"/api/chargers/{self.id}/basic_charge_plan", json=json)
+
+    async def enable_charger(self, enable: bool):
+        """Enable and disable charger in charger settings """
+        json = {"enabled": enable}
+        return await self.easee.post(f"/api/chargers/{self.id}/settings", json=json)
+
+    async def enable_idle_current(self, enable: bool):
+        """Enable and disable idle current in charger settings """
+        json = {"enableIdleCurrent": enable}
+        return await self.easee.post(f"/api/chargers/{self.id}/settings", json=json)
+
+    async def limitToSinglePhaseCharging(self, enable: bool):
+        """Limit to single phase charging in charger settings """
+        json = {"limitToSinglePhaseCharging": enable}
+        return await self.easee.post(f"/api/chargers/{self.id}/settings", json=json)
+
+    async def lockCablePermanently(self, enable: bool):
+        """Lock and unlock cable permanently in charger settings """
+        json = {"lockCablePermanently": enable}
+        return await self.easee.post(f"/api/chargers/{self.id}/settings", json=json)
+
+    async def smartButtonEnabled(self, enable: bool):
+        """Enable and disable smart button in charger settings """
+        json = {"smartButtonEnabled": enable}
+        return await self.easee.post(f"/api/chargers/{self.id}/settings", json=json)
 
     async def delete_basic_charge_plan(self):
         """Delete charger basic charge plan setting from cloud """
@@ -165,16 +188,26 @@ class Charger(BaseDict):
         """Update charger firmware"""
         return await self.easee.post(f"/api/chargers/{self.id}/commands/update_firmware")
 
-    async def set_dynamic_current(self, currentP1: int, currentP2: int = None, currentP3: int = None):
+    async def set_dynamic_charger_circuit_current(self, currentP1: int, currentP2: int = None, currentP3: int = None):
         """ Set circuit dynamic current for charger """
         if self.circuit is not None:
             return await self.circuit.set_dynamic_current(currentP1, currentP2, currentP3)
         else:
             _LOGGER.info("Circuit info must be initialized for dynamic current to be set")
 
-    async def set_max_current(self, currentP1: int, currentP2: int = None, currentP3: int = None):
+    async def set_max_charger_circuit_current(self, currentP1: int, currentP2: int = None, currentP3: int = None):
         """ Set circuit max current for charger """
         if self.circuit is not None:
             return await self.circuit.set_max_current(currentP1, currentP2, currentP3)
         else:
             _LOGGER.info("Circuit info must be initialized for max current to be set")
+
+    async def set_dynamic_charger_current(self, current: int):
+        """ Set charger dynamic current """
+        json = {"dynamicChargerCurrent": current}
+        return await self.easee.post(f"/api/chargers/{self.id}/settings", json=json)
+
+    async def set_max_charger_current(self, current: int):
+        """ Set charger max current """
+        json = {"maxChargerCurrent": current}
+        return await self.easee.post(f"/api/chargers/{self.id}/settings", json=json)
